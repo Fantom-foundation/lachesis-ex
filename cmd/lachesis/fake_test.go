@@ -34,7 +34,7 @@ func TestFakeNetFlag(t *testing.T) {
 	cli.Expect(`
 Welcome to the Lachesis JavaScript console!
 
-instance: go-lachesis/v{{version}}/{{goos}}-{{goarch}}/{{gover}}
+instance: lachesis-ex/v{{version}}/{{goos}}-{{goarch}}/{{gover}}
 coinbase: {{.Coinbase}}
 at block: 0 ({{niltime}})
  datadir: {{.Datadir}}
