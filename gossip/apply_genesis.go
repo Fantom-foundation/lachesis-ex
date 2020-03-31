@@ -67,11 +67,15 @@ func (s *Store) applyGenesis(net *lachesis.Config, state *evmcore.EvmBlock) (gen
 		// for nice-looking ID
 		e.Epoch = 0
 		e.Lamport = idx.Lamport(net.Dag.MaxEpochBlocks)
-		// actual data hashed
-		e.Extra = net.Genesis.ExtraData
+
+		if len(net.Genesis.ExtraData) == 0 {
+			// lachesis-ex garantie of uniqueness genesis hash
+			e.Extra = []byte("lachesis-ex")
+		} else {
+			e.Extra = net.Genesis.ExtraData
+		}
 		e.ClaimedTime = net.Genesis.Time
 		e.TxHash = net.Genesis.Alloc.Accounts.Hash()
-
 		return e.CalcHash()
 	}
 	genesisAtropos = prettyHash(net)

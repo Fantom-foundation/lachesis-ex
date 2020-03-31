@@ -29,7 +29,7 @@ import (
 
 const (
 	// clientIdentifier to advertise over the network.
-	clientIdentifier = "go-lachesis"
+	clientIdentifier = "lachesis-ex"
 )
 
 var (
@@ -37,7 +37,7 @@ var (
 	gitCommit = ""
 	gitDate   = ""
 	// App that holds all commands and flags.
-	App = utils.NewApp(gitCommit, gitDate, "the go-lachesis command line interface")
+	App = utils.NewApp(gitCommit, gitDate, "the lachesis-ex command line interface")
 
 	testFlags    []cli.Flag
 	nodeFlags    []cli.Flag

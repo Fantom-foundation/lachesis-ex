@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	MainNetworkID uint64 = 0xfa
-	TestNetworkID uint64 = 0xfa2
-	FakeNetworkID uint64 = 0xfa3
+	MainNetworkID uint64 = 0xfe
+	TestNetworkID uint64 = 0xfe2
+	FakeNetworkID uint64 = 0xfe3
 )
 
 var (
@@ -98,7 +98,7 @@ func (c *Config) EvmChainConfig() *ethparams.ChainConfig {
 
 func MainNetConfig() Config {
 	return Config{
-		Name:      "main",
+		Name:      "main-ex",
 		NetworkID: MainNetworkID,
 		Genesis:   genesis.MainGenesis(),
 		Dag:       DefaultDagConfig(),
@@ -111,7 +111,7 @@ func MainNetConfig() Config {
 
 func TestNetConfig() Config {
 	return Config{
-		Name:      "test",
+		Name:      "test-ex",
 		NetworkID: TestNetworkID,
 		Genesis:   genesis.TestGenesis(),
 		Dag:       DefaultDagConfig(),
@@ -124,7 +124,7 @@ func TestNetConfig() Config {
 
 func FakeNetConfig(accs genesis.VAccounts) Config {
 	return Config{
-		Name:      "fake",
+		Name:      "fake-ex",
 		NetworkID: FakeNetworkID,
 		Genesis:   genesis.FakeGenesis(accs),
 		Dag:       FakeNetDagConfig(),
