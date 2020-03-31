@@ -14,5 +14,6 @@ func (s *Store) migrate() {
 }
 
 func (s *Store) migrations() *migration.Migration {
-	return migration.Begin("lachesis-poset-store")
+	return migration.
+		Begin("lachesis-poset-store")
 }
