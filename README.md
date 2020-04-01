@@ -1,31 +1,10 @@
-# Experimental Lachesis 
+# WARNING: it is a very experimental Lachesis
 
-Consensus platform for distributed applications.
-
-## Build Details
-
-[![version](https://img.shields.io/github/tag/Fantom-foundation/lachesis-ex.svg?style=flat-square&logo=github
-)](https://github.com/Fantom-foundation/lachesis-ex/releases/latest)
-[![license](https://img.shields.io/github/license/Fantom-foundation/lachesis-ex.svg?style=flat-square&logo=github)](LICENSE.md)
-
-## Code Quality
-
-[![Go Report Card](https://goreportcard.com/badge/github.com/Fantom-foundation/lachesis-ex?style=flat-square&logo=goreportcard)](https://goreportcard.com/report/github.com/Fantom-foundation/lachesis-ex)
-[![GolangCI](https://golangci.com/badges/github.com/Fantom-foundation/lachesis-ex.svg?style=flat-square&logo=golangci)](https://golangci.com/r/github.com/Fantom-foundation/lachesis-ex)
-[![Codacy code quality](https://img.shields.io/codacy/grade/c8c27910210f4b23bcbbe8c60338b1d5.svg?style=flat-square&logo=codacy)](https://app.codacy.com/project/andrecronje/go-lachesis/dashboard)
-[![cii best practices](https://img.shields.io/cii/level/2409.svg?style=flat-square&logo=cci)](https://bestpractices.coreinfrastructure.org/en/projects/2409)
-[![cii percentage](https://img.shields.io/cii/percentage/2409.svg?style=flat-square&logo=cci)](https://bestpractices.coreinfrastructure.org/en/projects/2409)
-  
-[![GoDoc](https://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square&logo=godoc)](https://godoc.org/github.com/Fantom-foundation/lachesis-ex)
-
-[Documentation](https://github.com/Fantom-foundation/fantom-documentation/wiki).
+Consensus platform for distributed applications. Don't use for product!
 
 ## GitHub
 
 [![Commit Activity](https://img.shields.io/github/commit-activity/w/Fantom-foundation/lachesis-ex.svg?style=flat-square&logo=github)](https://github.com/Fantom-foundation/lachesis-ex/commits/master)
-[![Last Commit](https://img.shields.io/github/last-commit/Fantom-foundation/lachesis-ex.svg?style=flat-square&logo=github)](https://github.com/Fantom-foundation/lachesis-ex/commits/master)
-[![Contributors](https://img.shields.io/github/contributors/Fantom-foundation/lachesis-ex.svg?style=flat-square&logo=github)](https://github.com/Fantom-foundation/lachesis-ex/graphs/contributors)
-[![Issues][github-issues-image]][github-issues-url]
 [![LoC](https://tokei.rs/b1/github/Fantom-foundation/lachesis-ex?category=lines)](https://github.com/Fantom-foundation/lachesis-ex)
 
 
