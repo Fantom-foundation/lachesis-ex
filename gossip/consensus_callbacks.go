@@ -66,7 +66,6 @@ func (s *Service) processEvent(realEngine Consensus, e *inter.Event) error {
 	if newEpoch != oldEpoch {
 		// notify event checkers about new validation data
 		s.heavyCheckReader.Addrs.Store(ReadEpochPubKeys(s.abciApp, newEpoch))
-		s.gasPowerCheckReader.Ctx.Store(ReadGasPowerContext(s.store, s.abciApp, s.engine.GetValidators(), newEpoch, &s.config.Net.Economy))
 
 		// sealings/prunings
 		s.packsOnNewEpoch(oldEpoch, newEpoch)

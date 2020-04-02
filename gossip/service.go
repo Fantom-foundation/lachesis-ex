@@ -23,7 +23,6 @@ import (
 	"github.com/Fantom-foundation/lachesis-ex/eventcheck"
 	"github.com/Fantom-foundation/lachesis-ex/eventcheck/basiccheck"
 	"github.com/Fantom-foundation/lachesis-ex/eventcheck/epochcheck"
-	"github.com/Fantom-foundation/lachesis-ex/eventcheck/gaspowercheck"
 	"github.com/Fantom-foundation/lachesis-ex/eventcheck/heavycheck"
 	"github.com/Fantom-foundation/lachesis-ex/eventcheck/parentscheck"
 	"github.com/Fantom-foundation/lachesis-ex/evmcore"
@@ -91,17 +90,16 @@ type Service struct {
 	serverPool *serverPool
 
 	// application
-	node                *node.ServiceContext
-	store               *Store
-	abciApp             *app.App
-	engine              Consensus
-	engineMu            *sync.RWMutex
-	emitter             *Emitter
-	txpool              *evmcore.TxPool
-	occurredTxs         *occuredtxs.Buffer
-	heavyCheckReader    HeavyCheckReader
-	gasPowerCheckReader GasPowerCheckReader
-	checkers            *eventcheck.Checkers
+	node             *node.ServiceContext
+	store            *Store
+	abciApp          *app.App
+	engine           Consensus
+	engineMu         *sync.RWMutex
+	emitter          *Emitter
+	txpool           *evmcore.TxPool
+	occurredTxs      *occuredtxs.Buffer
+	heavyCheckReader HeavyCheckReader
+	checkers         *eventcheck.Checkers
 
 	// global variables. TODO refactor to pass them as arguments if possible
 	blockParticipated map[idx.StakerID]bool // validators who participated in last block
@@ -164,9 +162,8 @@ func NewService(ctx *node.ServiceContext, config *Config, store *Store, engine C
 	svc.txpool = evmcore.NewTxPool(config.TxPool, config.Net.EvmChainConfig(), stateReader)
 
 	// create checkers
-	svc.heavyCheckReader.Addrs.Store(ReadEpochPubKeys(svc.abciApp, svc.engine.GetEpoch()))                                                                     // read pub keys of current epoch from disk
-	svc.gasPowerCheckReader.Ctx.Store(ReadGasPowerContext(svc.store, svc.abciApp, svc.engine.GetValidators(), svc.engine.GetEpoch(), &svc.config.Net.Economy)) // read gaspower check data from disk
-	svc.checkers = makeCheckers(&svc.config.Net, &svc.heavyCheckReader, &svc.gasPowerCheckReader, svc.engine, svc.store)
+	svc.heavyCheckReader.Addrs.Store(ReadEpochPubKeys(svc.abciApp, svc.engine.GetEpoch())) // read pub keys of current epoch from disk
+	svc.checkers = makeCheckers(&svc.config.Net, &svc.heavyCheckReader, svc.engine, svc.store)
 
 	// create protocol manager
 	var err error
@@ -180,20 +177,16 @@ func NewService(ctx *node.ServiceContext, config *Config, store *Store, engine C
 }
 
 // makeCheckers builds event checkers
-func makeCheckers(net *lachesis.Config, heavyCheckReader *HeavyCheckReader, gasPowerCheckReader *GasPowerCheckReader, engine Consensus, store *Store) *eventcheck.Checkers {
+func makeCheckers(net *lachesis.Config, heavyCheckReader *HeavyCheckReader, engine Consensus, store *Store) *eventcheck.Checkers {
 	// create signatures checker
 	ledgerID := net.EvmChainConfig().ChainID
 	heavyCheck := heavycheck.NewDefault(&net.Dag, heavyCheckReader, types.NewEIP155Signer(ledgerID))
 
-	// create gaspower checker
-	gaspowerCheck := gaspowercheck.New(gasPowerCheckReader)
-
 	return &eventcheck.Checkers{
-		Basiccheck:    basiccheck.New(&net.Dag),
-		Epochcheck:    epochcheck.New(&net.Dag, engine),
-		Parentscheck:  parentscheck.New(&net.Dag),
-		Heavycheck:    heavyCheck,
-		Gaspowercheck: gaspowerCheck,
+		Basiccheck:   basiccheck.New(&net.Dag),
+		Epochcheck:   epochcheck.New(&net.Dag, engine),
+		Parentscheck: parentscheck.New(&net.Dag),
+		Heavycheck:   heavyCheck,
 	}
 }
 
