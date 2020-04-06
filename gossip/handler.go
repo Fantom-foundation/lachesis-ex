@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/Fantom-foundation/lachesis-ex/eventcheck"
-	"github.com/Fantom-foundation/lachesis-ex/evmcore"
 	"github.com/Fantom-foundation/lachesis-ex/gossip/fetcher"
 	"github.com/Fantom-foundation/lachesis-ex/gossip/ordering"
 	"github.com/Fantom-foundation/lachesis-ex/gossip/packsdownloader"
@@ -71,9 +70,6 @@ type ProtocolManager struct {
 	peers *peerSet
 
 	serverPool *serverPool
-
-	txsCh  chan evmcore.NewTxsNotify
-	txsSub notify.Subscription
 
 	downloader *packsdownloader.PacksDownloader
 	fetcher    *fetcher.Fetcher
@@ -320,17 +316,16 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 		// broadcast mined events
 		pm.emittedEventsCh = make(chan *inter.Event, 4)
 		pm.emittedEventsSub = pm.notifier.SubscribeNewEmitted(pm.emittedEventsCh)
+		go pm.emittedBroadcastLoop()
 		// broadcast packs
 		pm.newPacksCh = make(chan idx.Pack, 4)
 		pm.newPacksSub = pm.notifier.SubscribeNewPack(pm.newPacksCh)
+		go pm.progressBroadcastLoop()
 		// epoch changes
 		pm.newEpochsCh = make(chan idx.Epoch, 4)
 		pm.newEpochsSub = pm.notifier.SubscribeNewEpoch(pm.newEpochsCh)
+		go pm.onNewEpochLoop()
 	}
-
-	go pm.emittedBroadcastLoop()
-	go pm.progressBroadcastLoop()
-	go pm.onNewEpochLoop()
 
 	// start sync handlers
 	go pm.syncer()
@@ -339,7 +334,6 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 func (pm *ProtocolManager) Stop() {
 	log.Info("Stopping Fantom protocol")
 
-	pm.txsSub.Unsubscribe() // quits txBroadcastLoop
 	if pm.notifier != nil {
 		pm.emittedEventsSub.Unsubscribe() // quits eventBroadcastLoop
 		pm.newPacksSub.Unsubscribe()      // quits progressBroadcastLoop
@@ -753,7 +747,7 @@ func (pm *ProtocolManager) emittedBroadcastLoop() {
 		case emitted := <-pm.emittedEventsCh:
 			pm.BroadcastEvent(emitted, 0)
 		// Err() channel will be closed when unsubscribing.
-		case <-pm.txsSub.Err():
+		case <-pm.emittedEventsSub.Err():
 			return
 		}
 	}
@@ -776,7 +770,7 @@ func (pm *ProtocolManager) progressBroadcastLoop() {
 			}
 			prevProgress = pm.myProgress()
 		// Err() channel will be closed when unsubscribing.
-		case <-pm.txsSub.Err():
+		case <-pm.newPacksSub.Err():
 			return
 		}
 	}
@@ -808,7 +802,7 @@ func (pm *ProtocolManager) onNewEpochLoop() {
 			pm.buffer.Clear()
 			pm.downloader.OnNewEpoch(myEpoch, peerEpoch)
 		// Err() channel will be closed when unsubscribing.
-		case <-pm.txsSub.Err():
+		case <-pm.newEpochsSub.Err():
 			return
 		}
 	}
