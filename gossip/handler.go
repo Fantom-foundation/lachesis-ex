@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/Fantom-foundation/lachesis-ex/eventcheck"
-	"github.com/Fantom-foundation/lachesis-ex/evmcore"
 	"github.com/Fantom-foundation/lachesis-ex/gossip/fetcher"
 	"github.com/Fantom-foundation/lachesis-ex/gossip/ordering"
 	"github.com/Fantom-foundation/lachesis-ex/gossip/packsdownloader"
@@ -71,9 +70,6 @@ type ProtocolManager struct {
 	peers *peerSet
 
 	serverPool *serverPool
-
-	txsCh  chan evmcore.NewTxsNotify
-	txsSub notify.Subscription
 
 	downloader *packsdownloader.PacksDownloader
 	fetcher    *fetcher.Fetcher
@@ -316,36 +312,28 @@ func (pm *ProtocolManager) removePeer(id string) {
 func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.maxPeers = maxPeers
 
-	// broadcast transactions
-	pm.txsCh = make(chan evmcore.NewTxsNotify, txChanSize)
-	pm.txsSub = pm.txpool.SubscribeNewTxsNotify(pm.txsCh)
-	go pm.txBroadcastLoop()
-
 	if pm.notifier != nil {
 		// broadcast mined events
 		pm.emittedEventsCh = make(chan *inter.Event, 4)
 		pm.emittedEventsSub = pm.notifier.SubscribeNewEmitted(pm.emittedEventsCh)
+		go pm.emittedBroadcastLoop()
 		// broadcast packs
 		pm.newPacksCh = make(chan idx.Pack, 4)
 		pm.newPacksSub = pm.notifier.SubscribeNewPack(pm.newPacksCh)
+		go pm.progressBroadcastLoop()
 		// epoch changes
 		pm.newEpochsCh = make(chan idx.Epoch, 4)
 		pm.newEpochsSub = pm.notifier.SubscribeNewEpoch(pm.newEpochsCh)
+		go pm.onNewEpochLoop()
 	}
-
-	go pm.emittedBroadcastLoop()
-	go pm.progressBroadcastLoop()
-	go pm.onNewEpochLoop()
 
 	// start sync handlers
 	go pm.syncer()
-	go pm.txsyncLoop()
 }
 
 func (pm *ProtocolManager) Stop() {
 	log.Info("Stopping Fantom protocol")
 
-	pm.txsSub.Unsubscribe() // quits txBroadcastLoop
 	if pm.notifier != nil {
 		pm.emittedEventsSub.Unsubscribe() // quits eventBroadcastLoop
 		pm.newPacksSub.Unsubscribe()      // quits progressBroadcastLoop
@@ -424,10 +412,6 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		return err
 	}
 	defer pm.removePeer(p.id)
-
-	// Propagate existing transactions. new transactions appearing
-	// after this will be sent via broadcasts.
-	pm.syncTransactions(p)
 
 	// Handle incoming messages until the connection is torn down
 	for {
@@ -756,29 +740,6 @@ func (pm *ProtocolManager) BroadcastEvent(event *inter.Event, passed time.Durati
 	return len(peers)
 }
 
-// BroadcastTxs will propagate a batch of transactions to all peers which are not known to
-// already have the given transaction.
-func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
-	if len(txs) > softLimitItems {
-		txs = txs[:softLimitItems]
-	}
-
-	var txset = make(map[*peer]types.Transactions)
-
-	// Broadcast transactions to a batch of peers not knowing about it
-	for _, tx := range txs {
-		peers := pm.peers.PeersWithoutTx(tx.Hash())
-		for _, peer := range peers {
-			txset[peer] = append(txset[peer], tx)
-		}
-		log.Trace("Broadcast transaction", "hash", tx.Hash(), "recipients", len(peers))
-	}
-	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
-	for peer, txs := range txset {
-		peer.AsyncSendTransactions(txs)
-	}
-}
-
 // Mined broadcast loop
 func (pm *ProtocolManager) emittedBroadcastLoop() {
 	for {
@@ -786,7 +747,7 @@ func (pm *ProtocolManager) emittedBroadcastLoop() {
 		case emitted := <-pm.emittedEventsCh:
 			pm.BroadcastEvent(emitted, 0)
 		// Err() channel will be closed when unsubscribing.
-		case <-pm.txsSub.Err():
+		case <-pm.emittedEventsSub.Err():
 			return
 		}
 	}
@@ -809,7 +770,7 @@ func (pm *ProtocolManager) progressBroadcastLoop() {
 			}
 			prevProgress = pm.myProgress()
 		// Err() channel will be closed when unsubscribing.
-		case <-pm.txsSub.Err():
+		case <-pm.newPacksSub.Err():
 			return
 		}
 	}
@@ -841,20 +802,7 @@ func (pm *ProtocolManager) onNewEpochLoop() {
 			pm.buffer.Clear()
 			pm.downloader.OnNewEpoch(myEpoch, peerEpoch)
 		// Err() channel will be closed when unsubscribing.
-		case <-pm.txsSub.Err():
-			return
-		}
-	}
-}
-
-func (pm *ProtocolManager) txBroadcastLoop() {
-	for {
-		select {
-		case notify := <-pm.txsCh:
-			pm.BroadcastTxs(notify.Txs)
-
-		// Err() channel will be closed when unsubscribing.
-		case <-pm.txsSub.Err():
+		case <-pm.newEpochsSub.Err():
 			return
 		}
 	}

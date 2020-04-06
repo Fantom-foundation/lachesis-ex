@@ -626,6 +626,10 @@ func (em *Emitter) maxGasPowerToUse(e *inter.Event) uint64 {
 }
 
 func (em *Emitter) isAllowedToEmit(e *inter.Event, selfParent *inter.EventHeaderData) bool {
+	if len(e.Transactions) > 0 {
+		return true
+	}
+
 	passedTime := e.ClaimedTime.Time().Sub(em.prevEmittedTime)
 	// Slow down emitting if power is low
 	{
