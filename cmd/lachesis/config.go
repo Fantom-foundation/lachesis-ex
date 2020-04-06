@@ -258,6 +258,9 @@ func makeAllConfigs(ctx *cli.Context) config {
 		App:      app.DefaultConfig(net),
 	}
 
+	// no restrictions of event emission rate
+	cfg.Lachesis.Emitter.EmitIntervals.Min = 0
+
 	// Load config file (medium priority)
 	if file := ctx.GlobalString(configFileFlag.Name); file != "" {
 		if err := cfg.Load(file); err != nil {
