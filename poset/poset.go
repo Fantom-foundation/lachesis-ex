@@ -56,8 +56,10 @@ func New(dag lachesis.DagConfig, store *Store, input EventSource) *Poset {
 }
 
 // GetVectorIndex returns vector clock.
+// NOTE: returns nil to avoid any external forks detections
 func (p *Poset) GetVectorIndex() *vector.Index {
-	return p.vecClock
+	return nil
+	//return p.vecClock
 }
 
 // LastBlock returns current block.
