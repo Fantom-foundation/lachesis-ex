@@ -92,11 +92,7 @@ func (st *CasualityStrategy) Find(options hash.Events) hash.Event {
 			his := score.vec.Get(creatorIdx)
 
 			// observes higher
-			if his.Seq > my.Seq && !my.IsForkDetected() {
-				score.score++
-			}
-			// observes a fork
-			if his.IsForkDetected() && !my.IsForkDetected() {
+			if his.Seq > my.Seq {
 				score.score++
 			}
 		}

@@ -216,12 +216,12 @@ func (p *Poset) ProcessEvent(e *inter.Event) (err error) {
 	return
 }
 
-// forklessCausedByQuorumOn returns true if event is forkless caused by 2/3W roots on specified frame
-func (p *Poset) forklessCausedByQuorumOn(e *inter.Event, f idx.Frame) bool {
+// causedByQuorumOn returns true if event is caused by 2/3W roots on specified frame
+func (p *Poset) causedByQuorumOn(e *inter.Event, f idx.Frame) bool {
 	observedCounter := p.Validators.NewCounter()
 	// check "observing" prev roots only if called by creator, or if creator has marked that event as root
 	for _, it := range p.store.GetFrameRoots(f) {
-		if p.vecClock.ForklessCause(e.Hash(), it.ID) {
+		if p.vecClock.Cause(e.Hash(), it.ID) {
 			observedCounter.Count(it.Slot.Validator)
 		}
 		if observedCounter.HasQuorum() {
@@ -268,7 +268,7 @@ func (p *Poset) calcFrameIdx(e *inter.Event, checkOnly bool) (frame idx.Frame, i
 		// by 2/3W+1 there. It's because of liveness with forks, when up to 1/3W of roots on any frame may become "invisible"
 		// for forklessCause relation (so if we skip frames, there's may be deadlock when frames cannot advance because there's
 		// less than 2/3W visible roots)
-		isRoot = frame == selfParentFrame+1 && (e.Frame <= 1 || p.forklessCausedByQuorumOn(e, e.Frame-1))
+		isRoot = frame == selfParentFrame+1 && (e.Frame <= 1 || p.causedByQuorumOn(e, e.Frame-1))
 		return selfParentFrame + 1, isRoot
 	}
 
@@ -276,7 +276,7 @@ func (p *Poset) calcFrameIdx(e *inter.Event, checkOnly bool) (frame idx.Frame, i
 	if e.SelfParent() == nil {
 		return 1, true
 	}
-	if p.forklessCausedByQuorumOn(e, selfParentFrame) {
+	if p.causedByQuorumOn(e, selfParentFrame) {
 		return selfParentFrame + 1, true
 	}
 	// Note: if we assign maxParentsFrame, it'll break the liveness for a case with forks, because there may be less
