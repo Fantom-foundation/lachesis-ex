@@ -273,7 +273,5 @@ func mockAccountManager(accs genesis.Accounts, unlock ...common.Address) *accoun
 func mockCheckers(epoch idx.Epoch, net *lachesis.Config, engine Consensus, s *Store, a *app.App) *eventcheck.Checkers {
 	heavyCheckReader := &HeavyCheckReader{}
 	heavyCheckReader.Addrs.Store(ReadEpochPubKeys(a, epoch))
-	gasPowerCheckReader := &GasPowerCheckReader{}
-	gasPowerCheckReader.Ctx.Store(ReadGasPowerContext(s, a, engine.GetValidators(), engine.GetEpoch(), &net.Economy))
-	return makeCheckers(net, heavyCheckReader, gasPowerCheckReader, engine, s)
+	return makeCheckers(net, heavyCheckReader, engine, s)
 }
