@@ -121,7 +121,6 @@ func (a *App) processSfc(
 	epoch idx.Epoch,
 	block *inter.Block,
 	receipts types.Receipts,
-	cheaters inter.Cheaters,
 	stats *sfctype.EpochStats,
 ) {
 	// process SFC contract logs
@@ -288,20 +287,6 @@ func (a *App) processSfc(
 		}
 	}
 
-	// Write cheaters
-	for _, stakerID := range cheaters {
-		staker := a.store.GetSfcStaker(stakerID)
-		if staker.HasFork() {
-			continue
-		}
-		// write into DB
-		staker.Status |= sfctype.ForkBit
-		a.store.SetSfcStaker(stakerID, staker)
-		// write into SFC contract
-		position := sfcpos.Staker(stakerID)
-		a.setState(sfc.ContractAddress, position.Status(), utils.U64to256(staker.Status))
-	}
-
 	if a.ctx.sealEpoch {
 		if a.store.HasSfcConstants(epoch) {
 			a.store.SetSfcConstants(epoch+1, a.store.GetSfcConstants(epoch))
@@ -326,7 +311,6 @@ func (a *App) processSfc(
 		}
 
 		// Write epoch snapshot (for reward)
-		cheatersSet := cheaters.Set()
 		epochPos := sfcpos.EpochSnapshot(epoch)
 		epochValidators := a.store.GetEpochValidators(epoch)
 		baseRewardWeights, txRewardWeights := a.calcRewardWeights(epochValidators, stats.Duration())
@@ -341,9 +325,6 @@ func (a *App) processSfc(
 			totalStake.Add(totalStake, it.Staker.StakeAmount)
 			totalDelegated.Add(totalDelegated, it.Staker.DelegatedMe)
 
-			if _, ok := cheatersSet[it.StakerID]; ok {
-				continue // don't give reward to cheaters
-			}
 			if baseRewardWeight.Sign() == 0 && txRewardWeight.Sign() == 0 {
 				continue // don't give reward to offline validators
 			}

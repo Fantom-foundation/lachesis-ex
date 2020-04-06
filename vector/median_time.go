@@ -37,10 +37,7 @@ func (vi *Index) MedianTime(id hash.Event, genesisTime inter.Timestamp) inter.Ti
 		seq := beforeSeq.Get(creatorIdx)
 
 		// edge cases
-		if seq.IsForkDetected() {
-			// cheaters don't influence medianTime
-			highest.stake = 0
-		} else if seq.Seq == 0 {
+		if seq.Seq == 0 {
 			// if no event was observed from this node, then use genesisTime
 			highest.claimedTime = genesisTime
 		}

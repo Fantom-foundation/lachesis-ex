@@ -9,7 +9,7 @@ type kv struct {
 	a, b hash.Event
 }
 
-// ForklessCause calculates "sufficient coherence" between the events.
+// Cause calculates "sufficient coherence" between the events.
 // The A.HighestBefore array remembers the sequence number of the last
 // event by each validator that is an ancestor of A. The array for
 // B.LowestAfter remembers the sequence number of the earliest
@@ -18,23 +18,18 @@ type kv struct {
 // than or equal to the corresponding element of the B.LowestAfter
 // array. If there are more than 2n/3 such matches, then the A and B
 // have achieved sufficient coherency.
-//
-// If B1 and B2 are forks, then they cannot BOTH forkless-cause any specific event A,
-// unless more than 1/3W are Byzantine.
-// This great property is the reason why this function exists,
-// providing the base for the BFT algorithm.
-func (vi *Index) ForklessCause(aID, bID hash.Event) bool {
-	if res, ok := vi.cache.ForklessCause.Get(kv{aID, bID}); ok {
+func (vi *Index) Cause(aID, bID hash.Event) bool {
+	if res, ok := vi.cache.cause.Get(kv{aID, bID}); ok {
 		return res.(bool)
 	}
 
-	res := vi.forklessCause(aID, bID)
+	res := vi.cause(aID, bID)
 
-	vi.cache.ForklessCause.Add(kv{aID, bID}, res)
+	vi.cache.cause.Add(kv{aID, bID}, res)
 	return res
 }
 
-func (vi *Index) forklessCause(aID, bID hash.Event) bool {
+func (vi *Index) cause(aID, bID hash.Event) bool {
 	vi.initBranchesInfo()
 
 	// get events by hash
@@ -42,14 +37,6 @@ func (vi *Index) forklessCause(aID, bID hash.Event) bool {
 	if a == nil {
 		vi.Log.Crit("Event A not found", "event", aID.String())
 		return false
-	}
-
-	// check A doesn't observe any forks from B
-	if vi.atLeastOneFork() {
-		bBranchID := vi.getEventBranchID(bID)
-		if a.Get(bBranchID).IsForkDetected() { // B is observed as cheater by A
-			return false
-		}
 	}
 
 	// check A observes that {QUORUM} non-cheater-validators observe B
@@ -70,7 +57,7 @@ func (vi *Index) forklessCause(aID, bID hash.Event) bool {
 
 		// if lowest event from branchID which observes B <= highest from branchID observed by A
 		// then {highest from branchID observed by A} observes B
-		if bLowestAfter <= aHighestBefore.Seq && bLowestAfter != 0 && !aHighestBefore.IsForkDetected() {
+		if bLowestAfter <= aHighestBefore.Seq && bLowestAfter != 0 {
 			// we may count the same creator multiple times (on different branches)!
 			// so not every call increases the counter
 			yes.CountByIdx(creatorIdx)
@@ -87,17 +74,13 @@ func (vi *Index) NoCheaters(selfParent *hash.Event, options hash.Events) hash.Ev
 	}
 	vi.initBranchesInfo()
 
-	// no need to merge, because every branch is marked by IsForkDetected if fork is observed
-	highest := vi.GetHighestBeforeSeq(*selfParent)
 	filtered := make(hash.Events, 0, len(options))
 	for _, id := range options {
 		header := vi.getEvent(id)
 		if header == nil {
 			vi.Log.Crit("Event not found", "id", id.String())
 		}
-		if !highest.Get(vi.validators.GetIdx(header.Creator)).IsForkDetected() {
-			filtered.Add(id)
-		}
+		filtered.Add(id)
 	}
 	return filtered
 }

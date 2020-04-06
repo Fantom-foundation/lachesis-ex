@@ -52,12 +52,12 @@ func (a *App) InitChain(current idx.Epoch) {
 }
 
 // BeginBlock is a prototype of ABCIApplication.BeginBlock
-func (a *App) BeginBlock(block *inter.Block, cheaters inter.Cheaters, stateHash common.Hash, stateReader evmcore.DummyChain) {
+func (a *App) BeginBlock(block *inter.Block, stateHash common.Hash, stateReader evmcore.DummyChain) {
 	a.store.SetBlock(blockInfo(block))
 	a.ctx = &blockContext{
 		statedb:      a.store.StateDB(stateHash),
 		evmProcessor: evmcore.NewStateProcessor(a.config.Net.EvmChainConfig(), stateReader),
-		sealEpoch:    a.shouldSealEpoch(block, cheaters),
+		sealEpoch:    a.shouldSealEpoch(block),
 	}
 }
 
@@ -110,7 +110,6 @@ func (a *App) EndBlock(
 	block *inter.Block,
 	evmBlock *evmcore.EvmBlock,
 	receipts types.Receipts,
-	cheaters inter.Cheaters,
 	stats *sfctype.EpochStats,
 	txPositions map[common.Hash]TxPosition,
 	blockParticipated map[idx.StakerID]bool,
@@ -123,7 +122,7 @@ func (a *App) EndBlock(
 	a.updateUsersPOI(block, evmBlock, receipts)
 	a.updateStakersPOI(block)
 
-	a.processSfc(epoch, block, receipts, cheaters, stats)
+	a.processSfc(epoch, block, receipts, stats)
 	newStateHash, err := a.ctx.statedb.Commit(true)
 	if err != nil {
 		a.Log.Crit("Failed to commit state", "err", err)
@@ -141,11 +140,10 @@ func (a *App) EndBlock(
 	return newStateHash
 }
 
-func (a *App) shouldSealEpoch(block *inter.Block, cheaters inter.Cheaters) bool {
+func (a *App) shouldSealEpoch(block *inter.Block) bool {
 	startBlock, startTime := a.store.GetLastVoting()
 	seal := (block.Index - startBlock) >= idx.Block(a.config.Net.Dag.MaxEpochBlocks)
 	seal = seal || (block.Time-startTime) >= inter.Timestamp(a.config.Net.Dag.MaxEpochDuration)
-	seal = seal || cheaters.Len() > 0
 
 	return seal
 }

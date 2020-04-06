@@ -20,14 +20,14 @@ type (
 		votes        map[voteID]voteValue
 
 		// external world
-		observe       ForklessCauseFn
+		observe       CauseFn
 		getFrameRoots GetFrameRootsFn
 
 		logger.Instance
 	}
 
-	// ForklessCauseFn returns true if event A is forkless caused by event B
-	ForklessCauseFn func(a hash.Event, b hash.Event) bool
+	// CauseFn returns true if event A is caused by event B
+	CauseFn func(a hash.Event, b hash.Event) bool
 	// GetFrameRootsFn returns all the roots in the specified frame
 	GetFrameRootsFn func(f idx.Frame) []RootAndSlot
 
@@ -65,11 +65,11 @@ type Res struct {
 func New(
 	validators *pos.Validators,
 	frameToDecide idx.Frame,
-	forklessCauseFn ForklessCauseFn,
+	causeFn CauseFn,
 	getFrameRoots GetFrameRootsFn,
 ) *Election {
 	el := &Election{
-		observe:       forklessCauseFn,
+		observe:       causeFn,
 		getFrameRoots: getFrameRoots,
 
 		Instance: logger.MakeInstance(),
