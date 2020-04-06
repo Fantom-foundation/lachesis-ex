@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	forklessCauseCacheSize     = 5000
+	causeCacheSize             = 5000
 	highestBeforeSeqCacheSize  = 1000
 	highestBeforeTimeCacheSize = 1000
 	lowestAfterSeqCacheSize    = 1000
@@ -22,7 +22,7 @@ const (
 
 // IndexCacheConfig - config for cache sizes of Index
 type IndexCacheConfig struct {
-	ForklessCause     int `json:"forklessCause"`
+	Cause             int `json:"cause"`
 	HighestBeforeSeq  int `json:"highestBeforeSeq"`
 	HighestBeforeTime int `json:"highestBeforeTime"`
 	LowestAfterSeq    int `json:"lowestAfterSeq"`
@@ -33,7 +33,7 @@ type IndexConfig struct {
 	Caches IndexCacheConfig `json:"cacheSizes"`
 }
 
-// Index is a data to detect forkless-cause condition, calculate median timestamp, detect forks.
+// Index is a data to detect cause condition and calculate median timestamp.
 type Index struct {
 	validators *pos.Validators
 
@@ -55,7 +55,7 @@ type Index struct {
 		HighestBeforeSeq  *lru.Cache
 		HighestBeforeTime *lru.Cache
 		LowestAfterSeq    *lru.Cache
-		ForklessCause     *lru.Cache
+		cause             *lru.Cache
 	}
 
 	cfg IndexConfig
@@ -67,7 +67,7 @@ type Index struct {
 func DefaultIndexConfig() IndexConfig {
 	return IndexConfig{
 		Caches: IndexCacheConfig{
-			ForklessCause:     forklessCauseCacheSize,
+			Cause:             causeCacheSize,
 			HighestBeforeSeq:  highestBeforeSeqCacheSize,
 			HighestBeforeTime: highestBeforeTimeCacheSize,
 			LowestAfterSeq:    lowestAfterSeqCacheSize,
@@ -81,7 +81,7 @@ func NewIndex(config IndexConfig, validators *pos.Validators, db kvdb.KeyValueSt
 		Instance: logger.MakeInstance(),
 		cfg:      config,
 	}
-	vi.cache.ForklessCause, _ = lru.New(vi.cfg.Caches.ForklessCause)
+	vi.cache.cause, _ = lru.New(vi.cfg.Caches.Cause)
 	vi.cache.HighestBeforeSeq, _ = lru.New(vi.cfg.Caches.HighestBeforeSeq)
 	vi.cache.HighestBeforeTime, _ = lru.New(vi.cfg.Caches.HighestBeforeTime)
 	vi.cache.LowestAfterSeq, _ = lru.New(vi.cfg.Caches.LowestAfterSeq)
@@ -97,7 +97,7 @@ func (vi *Index) Reset(validators *pos.Validators, db kvdb.KeyValueStore, getEve
 	vi.vecDb = flushable.Wrap(db)
 	vi.validators = validators.Copy()
 	vi.DropNotFlushed()
-	vi.cache.ForklessCause.Purge()
+	vi.cache.cause.Purge()
 	vi.dropDependentCaches()
 
 	table.MigrateTables(&vi.table, vi.vecDb)
@@ -151,7 +151,6 @@ func (vi *Index) fillGlobalBranchID(e *inter.EventHeaderData, meIdx idx.Validato
 	if e.SelfParent() == nil {
 		// is it first event indeed?
 		if vi.bi.BranchIDLastSeq[meIdx] == 0 {
-			// OK, not a new fork
 			vi.bi.BranchIDLastSeq[meIdx] = e.Seq
 			return meIdx
 		}
@@ -164,28 +163,15 @@ func (vi *Index) fillGlobalBranchID(e *inter.EventHeaderData, meIdx idx.Validato
 
 		if vi.bi.BranchIDLastSeq[selfParentBranchID]+1 == e.Seq {
 			vi.bi.BranchIDLastSeq[selfParentBranchID] = e.Seq
-			// OK, not a new fork
 			return selfParentBranchID
 		}
 	}
 
-	// if we're here, then new fork is observed (only globally), create new branchID due to a new fork
 	vi.bi.BranchIDLastSeq = append(vi.bi.BranchIDLastSeq, e.Seq)
 	vi.bi.BranchIDCreatorIdxs = append(vi.bi.BranchIDCreatorIdxs, meIdx)
 	newBranchID := idx.Validator(len(vi.bi.BranchIDLastSeq) - 1)
-	vi.bi.BranchIDByCreators[meIdx] = append(vi.bi.BranchIDByCreators[meIdx], newBranchID)
-	return newBranchID
-}
 
-func (vi *Index) setForkDetected(beforeSeq HighestBeforeSeq, branchID idx.Validator) {
-	creatorIdx := vi.bi.BranchIDCreatorIdxs[branchID]
-	for _, branchID := range vi.bi.BranchIDByCreators[creatorIdx] {
-		beforeSeq.Set(idx.Validator(branchID), forkDetectedSeq)
-	}
-	// sanity check
-	if !vi.atLeastOneFork() {
-		vi.Log.Crit("Not written the correct branches info (inconsistent DB)")
-	}
+	return newBranchID
 }
 
 // fillEventVectors calculates (and stores) event's vectors, and updates LowestAfter of newly-observed events.
@@ -220,63 +206,25 @@ func (vi *Index) fillEventVectors(e *inter.EventHeaderData) allVecs {
 	myVecs.beforeTime.Set(meBranchID, e.ClaimedTime)
 
 	for _, pVec := range parentsVecs {
-		// calculate HighestBefore vector. Detect forks for a case when parent observes a fork
+		// calculate HighestBefore vector.
 		for branchID := idx.Validator(0); branchID < idx.Validator(len(vi.bi.BranchIDCreatorIdxs)); branchID++ {
 			hisSeq := pVec.beforeSeq.Get(branchID)
-			if hisSeq.Seq == 0 && !hisSeq.IsForkDetected() {
-				// hisSeq doesn't observe anything about this branchID
+			if hisSeq.Seq == 0 {
 				continue
 			}
 			mySeq := myVecs.beforeSeq.Get(branchID)
 
-			if mySeq.IsForkDetected() {
-				// mySeq observes the maximum already
-				continue
+			if mySeq.Seq == 0 || mySeq.MinSeq > hisSeq.MinSeq {
+				// take hisSeq.MinSeq
+				mySeq.MinSeq = hisSeq.MinSeq
+				myVecs.beforeSeq.Set(branchID, mySeq)
 			}
-			if hisSeq.IsForkDetected() {
-				// set fork detected
-				vi.setForkDetected(myVecs.beforeSeq, branchID)
-			} else {
-				if mySeq.Seq == 0 || mySeq.MinSeq > hisSeq.MinSeq {
-					// take hisSeq.MinSeq
-					mySeq.MinSeq = hisSeq.MinSeq
-					myVecs.beforeSeq.Set(branchID, mySeq)
-				}
-				if mySeq.Seq < hisSeq.Seq {
-					// take hisSeq.Seq
-					mySeq.Seq = hisSeq.Seq
-					myVecs.beforeSeq.Set(branchID, mySeq)
-					myVecs.beforeTime.Set(branchID, pVec.beforeTime.Get(branchID))
-				}
+			if mySeq.Seq < hisSeq.Seq {
+				// take hisSeq.Seq
+				mySeq.Seq = hisSeq.Seq
+				myVecs.beforeSeq.Set(branchID, mySeq)
+				myVecs.beforeTime.Set(branchID, pVec.beforeTime.Get(branchID))
 			}
-		}
-	}
-	// Detect forks, which were not observed by parents
-	if vi.atLeastOneFork() { // short circuit if no forks
-		for n := idx.Validator(0); n < idx.Validator(vi.validators.Len()); n++ {
-			if myVecs.beforeSeq.Get(n).IsForkDetected() {
-				// fork is already detected from the creator
-				continue
-			}
-			for _, branchID1 := range vi.bi.BranchIDByCreators[n] {
-				for _, branchID2 := range vi.bi.BranchIDByCreators[n] {
-					if branchID1 == branchID2 {
-						continue
-					}
-
-					a := myVecs.beforeSeq.Get(branchID1)
-					b := myVecs.beforeSeq.Get(branchID2)
-
-					if a.Seq == 0 || b.Seq == 0 {
-						continue
-					}
-					if a.MinSeq <= b.Seq && b.MinSeq <= a.Seq {
-						vi.setForkDetected(myVecs.beforeSeq, n)
-						goto nextCreator
-					}
-				}
-			}
-		nextCreator:
 		}
 	}
 
@@ -316,36 +264,5 @@ func (vi *Index) GetHighestBeforeMerged(id hash.Event) HighestBeforeSeq {
 
 func (vi *Index) getHighestBeforeMerged(id hash.Event) (HighestBeforeSeq, HighestBeforeTime) {
 	vi.initBranchesInfo()
-	if !vi.atLeastOneFork() {
-		// short circuit if no forks
-		return vi.GetHighestBeforeSeq(id), vi.GetHighestBeforeTime(id)
-	}
-
-	beforeSeq := vi.GetHighestBeforeSeq(id)
-	times := vi.GetHighestBeforeTime(id)
-	mergedTimes := NewHighestBeforeTime(vi.validators.Len())
-	mergedSeq := NewHighestBeforeSeq(vi.validators.Len())
-	for creatorIdx, branches := range vi.bi.BranchIDByCreators {
-		// merge all branches
-		mergedBranchSeq := BranchSeq{}
-		highestBranchTime := inter.Timestamp(0)
-		for _, branchID := range branches {
-			branch := beforeSeq.Get(branchID)
-			if branch.IsForkDetected() {
-				mergedBranchSeq = branch
-				break
-			}
-			if mergedBranchSeq.Seq < branch.Seq {
-				mergedBranchSeq.Seq = branch.Seq
-				highestBranchTime = times.Get(branchID)
-			}
-			if branch.MinSeq != 0 && (mergedBranchSeq.MinSeq == 0 || mergedBranchSeq.MinSeq > branch.MinSeq) {
-				mergedBranchSeq.MinSeq = branch.MinSeq
-			}
-		}
-		mergedTimes.Set(idx.Validator(creatorIdx), highestBranchTime)
-		mergedSeq.Set(idx.Validator(creatorIdx), mergedBranchSeq)
-	}
-
-	return mergedSeq, mergedTimes
+	return vi.GetHighestBeforeSeq(id), vi.GetHighestBeforeTime(id)
 }

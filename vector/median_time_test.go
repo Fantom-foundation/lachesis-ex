@@ -47,26 +47,20 @@ func TestMedianTimeOnIndex(t *testing.T) {
 		assertar.Equal(inter.Timestamp(1), vi.MedianTime(e, 1))
 	}
 
-	{ // fork seen = true
+	{
 		e := inter.NewEvent().EventHeaderData.Hash()
 		// validator indexes are sorted by stake amount
 		beforeSeq := NewHighestBeforeSeq(validators.Len())
 		beforeTime := NewHighestBeforeTime(validators.Len())
 
-		beforeSeq.Set(0, forkDetectedSeq)
-		beforeTime.Set(0, 100)
+		beforeSeq.Set(0, BranchSeq{Seq: 1})
+		beforeTime.Set(0, 10)
 
-		beforeSeq.Set(1, forkDetectedSeq)
-		beforeTime.Set(1, 100)
+		beforeSeq.Set(1, BranchSeq{Seq: 1})
+		beforeTime.Set(1, 10)
 
 		beforeSeq.Set(2, BranchSeq{Seq: 1})
 		beforeTime.Set(2, 10)
-
-		beforeSeq.Set(3, BranchSeq{Seq: 1})
-		beforeTime.Set(3, 10)
-
-		beforeSeq.Set(4, BranchSeq{Seq: 1})
-		beforeTime.Set(4, 10)
 
 		vi.SetHighestBefore(e, beforeSeq, beforeTime)
 		assertar.Equal(inter.Timestamp(10), vi.MedianTime(e, 1))
@@ -113,8 +107,8 @@ func TestMedianTimeOnDAG(t *testing.T) {
  ║            ╠═══════════ nodeC001
  ║║           ║            ║            ║
  ║╚══════════─╫─══════════─╫─══════════ nodeD001
-║║            ║            ║            ║
-╚ nodeA002════╬════════════╬════════════╣
+ ║            ║            ║            ║
+ nodeA002═════╬════════════╬════════════╣
  ║║           ║            ║            ║
  ║╚══════════─╫─══════════─╫─══════════ nodeD002
  ║            ║            ║            ║
