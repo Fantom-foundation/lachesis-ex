@@ -16,6 +16,10 @@ import (
 )
 
 type (
+	StateProcessor interface {
+		Process(block *evmcore.EvmBlock, statedb *state.StateDB, cfg vm.Config, strict bool) (types.Receipts, []*types.Log, uint64, *big.Int, []uint, error)
+	}
+
 	// App is a prototype of Tendermint ABCI Application
 	App struct {
 		config Config
@@ -29,7 +33,7 @@ type (
 
 	blockContext struct {
 		statedb      *state.StateDB
-		evmProcessor *evmcore.StateProcessor
+		evmProcessor StateProcessor
 		sealEpoch    bool
 		totalFee     *big.Int
 	}
@@ -55,9 +59,17 @@ func (a *App) InitChain(current idx.Epoch) {
 func (a *App) BeginBlock(block *inter.Block, stateHash common.Hash, stateReader evmcore.DummyChain) {
 	a.store.SetBlock(blockInfo(block))
 	a.ctx = &blockContext{
-		statedb:      a.store.StateDB(stateHash),
-		evmProcessor: evmcore.NewStateProcessor(a.config.Net.EvmChainConfig(), stateReader),
-		sealEpoch:    a.shouldSealEpoch(block),
+		statedb:   a.store.StateDB(stateHash),
+		sealEpoch: a.shouldSealEpoch(block),
+	}
+
+	switch a.config.Vm {
+	case "eth":
+		a.ctx.evmProcessor = evmcore.NewStateProcessor(a.config.Net.EvmChainConfig(), stateReader)
+	case "mock":
+		a.ctx.evmProcessor = &VmMock{}
+	default:
+		panic("unknown VM " + a.config.Vm)
 	}
 }
 

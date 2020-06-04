@@ -23,6 +23,7 @@ do
 	--datadir=${DATADIR} \
 	--fakenet=${ACC}/$N,test_accs.json \
 	--port=${PORT} \
+	--vm=mock \
 	--rpc --rpcaddr="127.0.0.1" --rpcport=${RPCP} --rpccorsdomain="*" --rpcapi="eth,debug,admin,web3,personal,txpool,ftm,sfc" \
 	--ws --wsaddr="127.0.0.1" --wsport=${WSP} --wsorigins="*" --wsapi="eth,debug,admin,web3,personal,txpool,ftm,sfc" \
 	--nousb --verbosity=3 --tracing &> .lachesis$i.log)&

@@ -8,6 +8,7 @@ type (
 	// Config for the application.
 	Config struct {
 		Net lachesis.Config
+		Vm  string
 		StoreConfig
 
 		// TxIndex enables indexing transactions and receipts
@@ -35,6 +36,7 @@ type (
 func DefaultConfig(network lachesis.Config) Config {
 	return Config{
 		Net:                             network,
+		Vm:                              "evm",
 		TxIndex:                         true,
 		EpochDowntimeIndex:              false,
 		EpochActiveValidationScoreIndex: false,
