@@ -243,6 +243,14 @@ func gossipConfigWithFlags(ctx *cli.Context, src gossip.Config) gossip.Config {
 	return cfg
 }
 
+func appConfigWithFlags(ctx *cli.Context, src app.Config) app.Config {
+	cfg := src
+	if ctx.GlobalIsSet(VmFlag.Name) {
+		cfg.Vm = ctx.GlobalString(VmFlag.Name)
+	}
+	return cfg
+}
+
 func nodeConfigWithFlags(ctx *cli.Context, cfg node.Config) node.Config {
 	utils.SetNodeConfig(ctx, &cfg)
 	setDataDir(ctx, &cfg)
@@ -273,6 +281,7 @@ func makeAllConfigs(ctx *cli.Context) config {
 	// Apply flags (high priority)
 	cfg.Lachesis = gossipConfigWithFlags(ctx, cfg.Lachesis)
 	cfg.Node = nodeConfigWithFlags(ctx, cfg.Node)
+	cfg.App = appConfigWithFlags(ctx, cfg.App)
 
 	return cfg
 }
