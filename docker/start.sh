@@ -18,11 +18,13 @@ do
 
     docker inspect $NAME &>/dev/null || \
     docker run -d --rm \
+	--cpus="1.5" \
 	--net=${NETWORK} --name=${NAME} \
 	--cpus=${LIMIT_CPU} --blkio-weight=${LIMIT_IO} \
 	-p ${RPCP}:18545 \
 	lachesis:${TAG} \
 	--fakenet=${ACC}/$N,/tmp/test_accs.json \
+	--ipcpath /root/.lachesis/lachesis.ipc \
 	--port=5050 \
 	--rpc --rpcaddr="0.0.0.0" --rpcport=18545 --rpcvhosts="*" --rpccorsdomain="*" --rpcapi="eth,debug,admin,web3,personal,net,txpool,ftm,sfc" \
 	--ws --wsaddr="0.0.0.0" --wsport=18546 --wsorigins="*" --wsapi="eth,debug,admin,web3,personal,net,txpool,ftm,sfc" \

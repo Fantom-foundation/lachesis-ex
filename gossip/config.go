@@ -84,8 +84,10 @@ func DefaultConfig(network lachesis.Config) Config {
 		},
 
 		GPO: gasprice.Config{
-			Blocks:     20,
-			Percentile: 60,
+			// Blocks:     20,
+			Blocks:     200,
+			// Percentile: 60,
+			Percentile: 100,
 			Default:    params.MinGasPrice,
 		},
 	}

@@ -130,7 +130,8 @@ func FakeNetConfig(accs genesis.VAccounts) Config {
 		Dag:       FakeNetDagConfig(),
 		Economy:   FakeEconomyConfig(),
 		Blocks: BlocksConfig{
-			BlockGasHardLimit: 20000000,
+			// BlockGasHardLimit: 20000000,
+			BlockGasHardLimit: 20000000000000,
 		},
 	}
 }
@@ -185,6 +186,7 @@ func FakeNetDagConfig() DagConfig {
 	cfg := DefaultDagConfig()
 	cfg.MaxEpochBlocks = 200
 	cfg.MaxEpochDuration = 10 * time.Minute
+	cfg.MaxValidatorEventsInBlock = 10000
 	return cfg
 }
 

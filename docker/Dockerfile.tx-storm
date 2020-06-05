@@ -22,5 +22,6 @@ FROM alpine:latest
 RUN apk add --no-cache ca-certificates
 
 COPY --from=builder /tmp/tx-storm /
+COPY ./docker/config.toml /
 
 ENTRYPOINT ["/tx-storm"]

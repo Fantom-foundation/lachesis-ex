@@ -58,7 +58,8 @@ func NewOracle(backend Reader, params Config) *Oracle {
 		backend:     backend,
 		lastPrice:   params.Default,
 		checkBlocks: blocks,
-		maxEmpty:    blocks / 2,
+		// maxEmpty:    blocks / 2,
+		maxEmpty:    0,
 		maxBlocks:   blocks * 5,
 		percentile:  percent,
 	}

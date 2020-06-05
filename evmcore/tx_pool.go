@@ -154,7 +154,8 @@ func DefaultTxPoolConfig() TxPoolConfig {
 		Journal:   "transactions.rlp",
 		Rejournal: time.Hour,
 
-		PriceLimit: lachesisparams.MinGasPrice.Uint64(),
+		PriceLimit: lachesisparams.MaxGasPowerUsed * 1000000,
+		// PriceLimit: lachesisparams.MinGasPrice.Uint64(),
 		PriceBump:  10,
 
 		AccountSlots: 16,
@@ -538,6 +539,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	// Make sure the transaction is signed properly
 	from, err := types.Sender(pool.signer, tx)
 	if err != nil {
+		log.Error("Invalid sender error", "err", err)
 		return ErrInvalidSender
 	}
 	// Drop non-local transactions under our own minimal accepted gas price
