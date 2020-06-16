@@ -334,7 +334,6 @@ func (em *Emitter) createEvent(poolTxs map[common.Address]types.Transactions) *i
 		// not a validator
 		return nil
 	}
-	validators := em.world.Engine.GetValidators()
 
 	if synced, _, _ := em.logSyncStatus(em.isSynced()); !synced {
 		// I'm reindexing my old events, so don't create events until connect all the existing self-events
@@ -403,18 +402,7 @@ func (em *Emitter) createEvent(poolTxs map[common.Address]types.Transactions) *i
 
 	// calc initial GasPower
 	event.GasPowerUsed = basiccheck.CalcGasPowerUsed(event, &em.net.Dag)
-	availableGasPower, err := em.world.Checkers.Gaspowercheck.CalcGasPower(&event.EventHeaderData, selfParentHeader)
-	if err != nil {
-		em.Log.Warn("Gas power calculation failed", "err", err)
-		return nil
-	}
-	if event.GasPowerUsed > availableGasPower.Min() {
-		em.Periodic.Warn(time.Second, "Not enough gas power to emit event. Too small stake?",
-			"gasPower", availableGasPower,
-			"stake%", 100*float64(validators.Get(em.myStakerID))/float64(validators.TotalStake()))
-		return nil
-	}
-	event.GasPowerLeft = *availableGasPower.Sub(event.GasPowerUsed)
+	event.GasPowerLeft = inter.GasPowerLeft{[2]uint64{event.GasPowerUsed, event.GasPowerUsed}}
 
 	// Add txs
 	event = em.addTxs(event, poolTxs)
@@ -638,6 +626,10 @@ func (em *Emitter) maxGasPowerToUse(e *inter.Event) uint64 {
 }
 
 func (em *Emitter) isAllowedToEmit(e *inter.Event, selfParent *inter.EventHeaderData) bool {
+	if len(e.Transactions) > 0 {
+		return true
+	}
+
 	passedTime := e.ClaimedTime.Time().Sub(em.prevEmittedTime)
 	// Slow down emitting if power is low
 	{
@@ -649,20 +641,6 @@ func (em *Emitter) isAllowedToEmit(e *inter.Event, selfParent *inter.EventHeader
 			factor := float64(e.GasPowerLeft.Min()) / float64(threshold)
 			adjustedEmitInterval := time.Duration(maxT - (maxT-minT)*factor)
 			if passedTime < adjustedEmitInterval {
-				return false
-			}
-		}
-	}
-	// Forbid emitting if not enough power and power is decreasing
-	{
-		threshold := em.config.EmergencyThreshold
-		if e.GasPowerLeft.Min() <= threshold {
-			if selfParent != nil && e.GasPowerLeft.Min() < selfParent.GasPowerLeft.Min() {
-				validators := em.world.Engine.GetValidators()
-				em.Periodic.Warn(10*time.Second, "Not enough power to emit event, waiting",
-					"power", e.GasPowerLeft.String(),
-					"selfParentPower", selfParent.GasPowerLeft.String(),
-					"stake%", 100*float64(validators.Get(e.Creator))/float64(validators.TotalStake()))
 				return false
 			}
 		}

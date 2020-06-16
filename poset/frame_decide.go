@@ -28,21 +28,13 @@ func (p *Poset) confirmEvents(frame idx.Frame, atropos hash.Event, onEventConfir
 	}
 }
 
-func (p *Poset) confirmBlock(frame idx.Frame, atropos hash.Event) (block *inter.Block, cheaters []idx.StakerID) {
+func (p *Poset) confirmBlock(frame idx.Frame, atropos hash.Event) (block *inter.Block) {
 	blockEvents := make([]*inter.EventHeaderData, 0, 50*p.Validators.Len())
 
 	atroposHighestBefore := p.vecClock.GetHighestBeforeMerged(atropos)
 	var highestLamport idx.Lamport
 	var lowestLamport idx.Lamport
 	var confirmedNum int
-
-	// cheaters are ordered deterministically
-	cheaters = make([]idx.StakerID, 0, p.Validators.Len())
-	for creatorIdx, creator := range p.Validators.SortedIDs() {
-		if atroposHighestBefore.Get(idx.Validator(creatorIdx)).IsForkDetected() {
-			cheaters = append(cheaters, creator)
-		}
-	}
 
 	p.confirmEvents(frame, atropos, func(confirmedEvent *inter.EventHeaderData) {
 		confirmedNum++
@@ -57,19 +49,18 @@ func (p *Poset) confirmBlock(frame idx.Frame, atropos hash.Event) (block *inter.
 
 		// but not all the events are included into a block
 		creatorHighest := atroposHighestBefore.Get(p.Validators.GetIdx(confirmedEvent.Creator))
-		fromCheater := creatorHighest.IsForkDetected()
 		// seqDepth is the depth in of this event in "chain" of self-parents of this creator
 		seqDepth := creatorHighest.Seq - confirmedEvent.Seq
 		if creatorHighest.Seq < confirmedEvent.Seq {
 			seqDepth = math.MaxInt32
 		}
 		allowed := p.callback.IsEventAllowedIntoBlock == nil || p.callback.IsEventAllowedIntoBlock(confirmedEvent, seqDepth)
-		// block consists of allowed events from non-cheaters
-		if !fromCheater && allowed {
+		// block consists of allowed events
+		if allowed {
 			blockEvents = append(blockEvents, confirmedEvent)
 		}
 		// sanity check
-		if !fromCheater && confirmedEvent.Seq > creatorHighest.Seq {
+		if confirmedEvent.Seq > creatorHighest.Seq {
 			p.Log.Crit("DAG is inconsistent with vector clock", "event", confirmedEvent.String(), "seq", confirmedEvent.Seq, "highest", creatorHighest.Seq)
 		}
 
@@ -87,7 +78,7 @@ func (p *Poset) confirmBlock(frame idx.Frame, atropos hash.Event) (block *inter.
 
 	// block building
 	block = inter.NewBlock(p.Checkpoint.LastBlockN+1, frameInfo.LastConsensusTime, atropos, p.Checkpoint.LastAtropos, orderedBlockEvents)
-	return block, cheaters
+	return block
 }
 
 // onFrameDecided moves LastDecidedFrameN to frame.
@@ -98,14 +89,14 @@ func (p *Poset) onFrameDecided(frame idx.Frame, atropos hash.Event) bool {
 	p.election.Reset(p.Validators, frame+1)
 	p.Checkpoint.LastDecidedFrame = frame
 
-	block, cheaters := p.confirmBlock(frame, atropos)
+	block := p.confirmBlock(frame, atropos)
 
 	// new checkpoint
 	var sealEpoch bool
 	var appHash common.Hash
 	p.Checkpoint.LastBlockN++
 	if p.callback.ApplyBlock != nil {
-		appHash, sealEpoch = p.callback.ApplyBlock(block, frame, cheaters)
+		appHash, sealEpoch = p.callback.ApplyBlock(block, frame)
 		p.Checkpoint.AppHash = hash.Of(p.Checkpoint.AppHash.Bytes(), appHash.Bytes())
 	}
 	p.Checkpoint.LastAtropos = atropos

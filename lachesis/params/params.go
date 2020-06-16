@@ -21,6 +21,5 @@ const (
 
 var (
 	// MinGasPrice is minimum possible gas price for a transaction
-	MinGasPrice = big.NewInt(1)
-	// MinGasPrice = big.NewInt(1e9)
+	MinGasPrice = big.NewInt(0)
 )

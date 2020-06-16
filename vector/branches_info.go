@@ -7,9 +7,8 @@ import (
 
 // branchesInfo contains information about global branches of each validator
 type branchesInfo struct {
-	BranchIDLastSeq     []idx.Event       // branchID -> highest e.Seq in the branch
-	BranchIDCreatorIdxs []idx.Validator   // branchID -> validator idx
-	BranchIDByCreators  [][]idx.Validator // validator idx -> list of branch IDs
+	BranchIDLastSeq     []idx.Event     // branchID -> highest e.Seq in the branch
+	BranchIDCreatorIdxs []idx.Validator // branchID -> validator idx
 }
 
 // initBranchesInfo loads branchesInfo from store
@@ -32,18 +31,9 @@ func newInitialBranchesInfo(validators *pos.Validators) *branchesInfo {
 	}
 
 	branchIDLastSeq := make([]idx.Event, len(branchIDCreatorIdxs))
-	branchIDByCreators := make([][]idx.Validator, validators.Len())
-	for i := range branchIDByCreators {
-		branchIDByCreators[i] = make([]idx.Validator, 1, validators.Len()/2+1)
-		branchIDByCreators[i][0] = idx.Validator(i)
-	}
+
 	return &branchesInfo{
 		BranchIDLastSeq:     branchIDLastSeq,
 		BranchIDCreatorIdxs: branchIDCreatorIdxs,
-		BranchIDByCreators:  branchIDByCreators,
 	}
-}
-
-func (vi *Index) atLeastOneFork() bool {
-	return len(vi.bi.BranchIDCreatorIdxs) > vi.validators.Len()
 }

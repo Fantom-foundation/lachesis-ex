@@ -1,0 +1,15 @@
+Requirements:
+
+R1. users can submit transactions into any node's transaction pool.
+R2. A node can pick txns from its own pool and generate new event block.
+R3. A node can send its own event block to any peer node of the network.
+R4. Remove the restrictions of event emission rate (that is used to avoid txn flooding, etc).
+We temporarily forget about security issues, for the sake for performance benchmarking.
+R5. Separate the repository into separate modules: consensus, gossip, evm, api and sfc. So that we can focus on consensus part.
+And we may optimize the gossip part later.
+R6. Implement a mock evm. Allow launch performance tests and testnets with mock evm.
+Transactions can be stored as simple data record, e.g., a short string. Transaction execution is not required.
+R7. May disable the fork mechanics (the current implementation).
+R8. May disable the second vector clock (in the current impl).
+R9. Remove free gas parents (we won't need gas and fees).
+

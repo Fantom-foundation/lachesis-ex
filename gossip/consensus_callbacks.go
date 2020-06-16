@@ -66,7 +66,6 @@ func (s *Service) processEvent(realEngine Consensus, e *inter.Event) error {
 	if newEpoch != oldEpoch {
 		// notify event checkers about new validation data
 		s.heavyCheckReader.Addrs.Store(ReadEpochPubKeys(s.abciApp, newEpoch))
-		s.gasPowerCheckReader.Ctx.Store(ReadGasPowerContext(s.store, s.abciApp, s.engine.GetValidators(), newEpoch, &s.config.Net.Economy))
 
 		// sealings/prunings
 		s.packsOnNewEpoch(oldEpoch, newEpoch)
@@ -86,7 +85,6 @@ func (s *Service) processEvent(realEngine Consensus, e *inter.Event) error {
 // applyNewState moves the state according to new block (txs execution, SFC logic, epoch sealing)
 func (s *Service) applyNewState(
 	block *inter.Block,
-	cheaters inter.Cheaters,
 ) (
 	*inter.Block,
 	*evmcore.EvmBlock,
@@ -120,7 +118,7 @@ func (s *Service) applyNewState(
 
 	// Get app
 	stateHash := s.store.GetBlock(block.Index - 1).Root
-	s.abciApp.BeginBlock(block, cheaters, stateHash, s.GetEvmStateReader())
+	s.abciApp.BeginBlock(block, stateHash, s.GetEvmStateReader())
 
 	// Process txs
 	block, evmBlock, totalFee, receipts, sealEpoch := s.abciApp.DeliverTxs(block, evmBlock)
@@ -140,12 +138,12 @@ func (s *Service) applyNewState(
 
 	// Process SFC contract transactions
 	stats := s.updateEpochStats(epoch, block, totalFee, sealEpoch)
-	newStateHash := s.abciApp.EndBlock(block, evmBlock, receipts, cheaters,
+	newStateHash := s.abciApp.EndBlock(block, evmBlock, receipts,
 		stats, txPositions, s.blockParticipated)
 
 	// Process new epoch
 	if sealEpoch {
-		s.onEpochSealed(block, cheaters)
+		s.onEpochSealed(block)
 	}
 
 	// Save state root
@@ -218,38 +216,33 @@ func (s *Service) assembleEvmBlock(
 }
 
 // onEpochSealed applies the new epoch sealing state
-func (s *Service) onEpochSealed(block *inter.Block, cheaters inter.Cheaters) {
+func (s *Service) onEpochSealed(block *inter.Block) {
 	// s.engineMu is locked here
 
 	epoch := s.engine.GetEpoch()
 
-	// delete last headers of cheaters
-	for _, cheater := range cheaters {
-		s.store.DelLastHeader(epoch, cheater) // for cheaters, it's uncertain which event is "last confirmed"
-	}
 	// prune not needed last headers
 	s.store.DelLastHeaders(epoch - 1)
 }
 
-func (s *Service) legacyShouldSealEpoch(block *inter.Block, decidedFrame idx.Frame, cheaters inter.Cheaters) (sealEpoch bool) {
+func (s *Service) legacyShouldSealEpoch(block *inter.Block, decidedFrame idx.Frame) (sealEpoch bool) {
 	// if cheater is confirmed, seal epoch right away to prune them from of BFT validators list
 	epochStart := s.store.GetEpochStats(pendingEpoch).Start
 	sealEpoch = decidedFrame >= s.config.Net.Dag.MaxEpochBlocks
 	sealEpoch = sealEpoch || block.Time-epochStart >= inter.Timestamp(s.config.Net.Dag.MaxEpochDuration)
-	sealEpoch = sealEpoch || cheaters.Len() > 0
 	return sealEpoch
 }
 
 // applyBlock execs ordered txns of new block on state, and fills the block DB indexes.
-func (s *Service) applyBlock(block *inter.Block, decidedFrame idx.Frame, cheaters inter.Cheaters) (newAppHash common.Hash, sealEpoch bool) {
+func (s *Service) applyBlock(block *inter.Block, decidedFrame idx.Frame) (newAppHash common.Hash, sealEpoch bool) {
 	// s.engineMu is locked here
 
 	confirmBlocksMeter.Inc(1)
 
 	// TODO: legacy sanity check, remove it after few releases
-	legacySealEpoch := s.legacyShouldSealEpoch(block, decidedFrame, cheaters)
+	legacySealEpoch := s.legacyShouldSealEpoch(block, decidedFrame)
 
-	block, evmBlock, receipts, txPositions, newAppHash, sealEpoch := s.applyNewState(block, cheaters)
+	block, evmBlock, receipts, txPositions, newAppHash, sealEpoch := s.applyNewState(block)
 
 	// TODO: legacy sanity check, remove it after few releases
 	legacySealEpoch = legacySealEpoch || sfctype.EpochIsForceSealed(receipts)

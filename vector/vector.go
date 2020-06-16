@@ -2,7 +2,6 @@ package vector
 
 import (
 	"encoding/binary"
-	"math"
 
 	"github.com/Fantom-foundation/lachesis-ex/inter"
 	"github.com/Fantom-foundation/lachesis-ex/inter/idx"
@@ -15,7 +14,7 @@ import (
 type (
 	// LowestAfterSeq is a vector of lowest events (their Seq) which do observe the source event
 	LowestAfterSeq []byte
-	// HighestBeforeSeq is a vector of highest events (their Seq + IsForkDetected) which are observed by source event
+	// HighestBeforeSeq is a vector of highest events (their Seq) which are observed by source event
 	HighestBeforeSeq []byte
 	// HighestBeforeTime is a vector of highest events (their ClaimedTime) which are observed by source event
 	HighestBeforeTime []byte
@@ -121,17 +120,4 @@ func (b *HighestBeforeSeq) Set(i idx.Validator, seq BranchSeq) {
 	}
 	binary.LittleEndian.PutUint32((*b)[i*8:i*8+4], uint32(seq.Seq))
 	binary.LittleEndian.PutUint32((*b)[i*8+4:i*8+8], uint32(seq.MinSeq))
-}
-
-var (
-	// forkDetectedSeq is a special marker of observed fork by a creator
-	forkDetectedSeq = BranchSeq{
-		Seq:    0,
-		MinSeq: idx.Event(math.MaxInt32),
-	}
-)
-
-// IsForkDetected returns true if observed fork by a creator (in combination of branches)
-func (seq BranchSeq) IsForkDetected() bool {
-	return seq == forkDetectedSeq
 }

@@ -47,7 +47,7 @@ func (p *Poset) Bootstrap(callback inter.ConsensusCallbacks) {
 	p.vecClock = vector.NewIndex(p.dag.VectorClockConfig, p.Validators, p.store.epochTable.VectorIndex, func(id hash.Event) *inter.EventHeaderData {
 		return p.input.GetEventHeader(p.EpochN, id)
 	})
-	p.election = election.New(p.Validators, p.LastDecidedFrame+1, p.vecClock.ForklessCause, p.store.GetFrameRoots)
+	p.election = election.New(p.Validators, p.LastDecidedFrame+1, p.vecClock.Cause, p.store.GetFrameRoots)
 
 	// events reprocessing
 	p.handleElection(nil)
