@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Fantom-foundation/lachesis-ex/app"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/cmd/utils"
@@ -53,6 +55,7 @@ func init() {
 	// Flags for testing purpose.
 	testFlags = []cli.Flag{
 		FakeNetFlag,
+		VmFlag,
 	}
 
 	// Flags that configure the node.
@@ -234,7 +237,7 @@ func makeFullNode(ctx *cli.Context) *node.Node {
 	engine, adb, gdb := integration.MakeEngine(cfg.Node.DataDir, &cfg.Lachesis, &cfg.App)
 	metrics.SetDataDir(cfg.Node.DataDir)
 
-	abci := integration.MakeABCI(cfg.Lachesis.Net, adb)
+	abci := app.New(cfg.App, adb)
 
 	// configure emitter
 	var ks *keystore.KeyStore

@@ -16,7 +16,7 @@ func NewIntegration(ctx *adapters.ServiceContext, network lachesis.Config) *goss
 	appCfg := app.DefaultConfig(network)
 
 	engine, adb, gdb := MakeEngine(ctx.Config.DataDir, &gossipCfg, &appCfg)
-	abci := MakeABCI(network, adb)
+	abci := app.New(app.DefaultConfig(network), adb)
 
 	coinbase := SetAccountKey(
 		ctx.NodeContext.AccountManager,
